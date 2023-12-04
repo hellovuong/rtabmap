@@ -99,6 +99,8 @@ SET(SRC_FILES
     IMUThread.cpp
     IMUFilter.cpp
     imufilter/ComplementaryFilter.cpp
+
+    ./mqtt/mqtt_matcher.cpp
     
     Stereo.cpp
     StereoDense.cpp
@@ -492,6 +494,13 @@ IF(opengv_FOUND)
     )
 ENDIF(opengv_FOUND)
 
+if(PahoMqttCpp_FOUND)
+		set(LIBRARIES
+				${LIBRARIES}
+				PahoMqttCpp::paho-mqttpp3
+		)
+endif(PahoMqttCpp_FOUND)
+
 IF(PDAL_FOUND)
 	SET(INCLUDE_DIRS
 		${INCLUDE_DIRS}
@@ -770,7 +779,8 @@ add_definitions(${PCL_DEFINITIONS})
 
 
 # Make sure the compiler can find include files from our library.
-INCLUDE_DIRECTORIES(${INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${INCLUDE_DIRS}
+										../../external/json/include)
 
 # Add binary that is built from the source file "main.cpp".
 # The extension is automatically found.

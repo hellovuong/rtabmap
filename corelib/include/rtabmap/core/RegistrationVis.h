@@ -30,7 +30,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rtabmap/core/rtabmap_core_export.h" // DLL export/import defines
 
+#include <memory>
 #include <rtabmap/core/Registration.h>
+#include "rtabmap/core/mqtt/mqtt_matcher.h"
 #include <rtabmap/core/Signature.h>
 
 namespace rtabmap {
@@ -109,6 +111,7 @@ private:
 #ifdef RTABMAP_PYTHON
 	PyMatcher * _pyMatcher;
 #endif
+	std::unique_ptr<MqttMatcher> mqttMatcher_{};
 };
 
 }

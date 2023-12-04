@@ -27,6 +27,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
+#include <iostream>
 #include <rtabmap/core/RegistrationVis.h>
 #include <rtabmap/core/util3d_motion_estimation.h>
 #include <rtabmap/core/util3d_features.h>
@@ -43,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rtabmap/utilite/UTimer.h>
 #include <rtabmap/utilite/UMath.h>
 #include <opencv2/core/core_c.h>
-
+#include "rtabmap/core/mqtt/mqtt_matcher.h"
 #if defined(HAVE_OPENCV_XFEATURES2D) && (CV_MAJOR_VERSION > 3 || (CV_MAJOR_VERSION==3 && CV_MINOR_VERSION >=4 && CV_SUBMINOR_VERSION >= 1))
 #include <opencv2/xfeatures2d.hpp> // For GMS matcher
 #endif
@@ -193,6 +194,10 @@ void RegistrationVis::parseParameters(const ParametersMap & parameters)
 		_nnType = Parameters::defaultVisCorNNType();
 	}
 #endif
+	if(_nnType == 7)
+	{
+	  mqttMatcher_ = std::make_unique<MqttMatcher>("tcp://localhost:1883", "request_matches", "respond_matches"); 	
+	}
 
 	// override feature parameters
 	for(ParametersMap::const_iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
@@ -790,9 +795,9 @@ Transform RegistrationVis::computeTransformationImpl(
 			fromSignature.sensorData().setFeatures(kptsFrom, kptsFrom3D, descriptorsFrom);
 			toSignature.sensorData().setFeatures(kptsTo, kptsTo3D, descriptorsTo);
 
-			UDEBUG("descriptorsFrom=%d", descriptorsFrom.rows);
-			UDEBUG("descriptorsTo=%d", descriptorsTo.rows);
-			UDEBUG("orignalWordsFromIds=%d", (int)orignalWordsFromIds.size());
+			UWARN("descriptorsFrom=%d", descriptorsFrom.rows);
+			UWARN("descriptorsTo=%d", descriptorsTo.rows);
+			UWARN("orignalWordsFromIds=%d", (int)orignalWordsFromIds.size());
 
 			// We have all data we need here, so match!
 			if(descriptorsFrom.rows > 0 && descriptorsTo.rows > 0)
@@ -1219,30 +1224,10 @@ Transform RegistrationVis::computeTransformationImpl(
 						{
 							std::vector<int> toWordIdsV(descriptorsTo.rows, 0);
 							std::vector<cv::DMatch> matches;
-#ifdef RTABMAP_PYTHON
-							if(_nnType == 6 && _pyMatcher &&
-								descriptorsTo.cols == descriptorsFrom.cols &&
-								descriptorsTo.rows == (int)kptsTo.size() &&
-								descriptorsTo.type() == CV_32F &&
-								descriptorsFrom.type() == CV_32F &&
-								descriptorsFrom.rows == (int)kptsFrom.size() &&
-								models.size() == 1)
 							{
-								UDEBUG("Python matching");
-								matches = _pyMatcher->match(descriptorsTo, descriptorsFrom, kptsTo, kptsFrom, models[0].imageSize());
-							}
-							else
-							{
-								if(_nnType == 6 && _pyMatcher)
-								{
-									UDEBUG("Invalid inputs for Python matching (desc type=%d, only float descriptors supported, multicam not supported), doing bruteforce matching instead.", descriptorsFrom.type());
-								}
-#else
-							{
-#endif
 								bool doCrossCheck = true;
 #ifdef HAVE_OPENCV_XFEATURES2D
-#if CV_MAJOR_VERSION > 3 || (CV_MAJOR_VERSION==3 && CV_MINOR_VERSION >=4 && CV_SUBMINOR_VERSION >= 1)
+#if 0 
 								cv::Size imageSizeFrom;
 								if(_nnType == 7)
 								{
@@ -1263,19 +1248,32 @@ Transform RegistrationVis::computeTransformationImpl(
 								}
 #endif
 #endif
+								cv::Size imageSizeFrom;
+								if(_nnType == 7)
+								{
+									imageSizeFrom = imageFrom.size();
 
-								UDEBUG("BruteForce matching%s", _nnType!=7?" with crosscheck":" with GMS");
-								cv::BFMatcher matcher(descriptorsFrom.type()==CV_8U?cv::NORM_HAMMING:cv::NORM_L2SQR, doCrossCheck);
-								matcher.match(descriptorsTo, descriptorsFrom, matches);
+									if((imageSizeFrom.height == 0 || imageSizeFrom.width == 0) && (fromSignature.sensorData().cameraModels().size() || fromSignature.sensorData().stereoCameraModels().size()))
+									{
+										imageSizeFrom = fromSignature.sensorData().cameraModels().size() == 1?fromSignature.sensorData().cameraModels()[0].imageSize():fromSignature.sensorData().stereoCameraModels()[0].left().imageSize();
+									}
+									if(!models.empty() && models[0].imageSize().height > 0 && models[0].imageSize().width > 0 &&
+									   imageSizeFrom.height > 0 && imageSizeFrom.width > 0)
+									{
+										std::cout << "Requesting matching....." << std::endl;
+										mqttMatcher_->request_matching(kptsTo, descriptorsTo, kptsFrom, descriptorsFrom, matches);
+										std::cout << "Receive matches: " << matches.size() << std::endl;
+									}
+								}
 
 #if defined(HAVE_OPENCV_XFEATURES2D) && (CV_MAJOR_VERSION > 3 || (CV_MAJOR_VERSION==3 && CV_MINOR_VERSION >=4 && CV_SUBMINOR_VERSION >= 1))
-								if(!doCrossCheck)
-								{
-									UASSERT(!models.empty());
-									std::vector<cv::DMatch> matchesGMS;
-									cv::xfeatures2d::matchGMS(models[0].imageSize(), imageSizeFrom, kptsTo, kptsFrom, matches, matchesGMS, _gmsWithRotation, _gmsWithScale, _gmsThresholdFactor);
-									matches = matchesGMS;
-								}
+								//if(!doCrossCheck)
+								//{
+								//	UASSERT(!models.empty());
+								//	std::vector<cv::DMatch> matchesGMS;
+								//	cv::xfeatures2d::matchGMS(models[0].imageSize(), imageSizeFrom, kptsTo, kptsFrom, matches, matchesGMS, _gmsWithRotation, _gmsWithScale, _gmsThresholdFactor);
+								//	matches = matchesGMS;
+								//}
 #endif
 							}
 							for(size_t i=0; i<matches.size(); ++i)
