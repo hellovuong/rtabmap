@@ -27,6 +27,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
+#include <opencv2/features2d.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <rtabmap/core/RegistrationVis.h>
 #include <rtabmap/core/util3d_motion_estimation.h>
 #include <rtabmap/core/util3d_features.h>
@@ -43,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rtabmap/utilite/UTimer.h>
 #include <rtabmap/utilite/UMath.h>
 #include <opencv2/core/core_c.h>
+#include <string>
 
 #if defined(HAVE_OPENCV_XFEATURES2D) && (CV_MAJOR_VERSION > 3 || (CV_MAJOR_VERSION==3 && CV_MINOR_VERSION >=4 && CV_SUBMINOR_VERSION >= 1))
 #include <opencv2/xfeatures2d.hpp> // For GMS matcher
@@ -1230,6 +1233,9 @@ Transform RegistrationVis::computeTransformationImpl(
 							{
 								UDEBUG("Python matching");
 								matches = _pyMatcher->match(descriptorsTo, descriptorsFrom, kptsTo, kptsFrom, models[0].imageSize());
+								cv::Mat matched_img;
+								cv::drawMatches(toSignature.sensorData().imageRaw(), kptsTo, fromSignature.sensorData().imageRaw(), kptsFrom, matches, matched_img);
+								cv::imwrite("/root/debug/" + std::to_string(toSignature.sensorData().id()) + ".png", matched_img);
 							}
 							else
 							{
