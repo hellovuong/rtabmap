@@ -1234,14 +1234,11 @@ Transform RegistrationVis::computeTransformationImpl(
 								UDEBUG("Python matching");
 								matches = _pyMatcher->match(descriptorsTo, descriptorsFrom, kptsTo, kptsFrom, models[0].imageSize());
 								cv::Mat matched_img;
-								if (!toSignature.sensorData().imageRaw().empty())
+								if (!imageTo.empty() && !imageFrom.empty())
 								{
-									cv::drawMatches(toSignature.sensorData().imageRaw(), kptsTo, fromSignature.sensorData().imageRaw(), kptsFrom, matches, matched_img);
+									cv::drawMatches(imageTo, kptsTo, imageFrom, kptsFrom, matches, matched_img);
 									cv::imwrite("/root/debug/" + std::to_string(toSignature.sensorData().id()) + ".png", matched_img);
 								}
-								else if(!toSignature.sensorData().imageCompressed().empty())
-								  cv::drawMatches(toSignature.sensorData().imageCompressed(), kptsTo, fromSignature.sensorData().imageCompressed(), kptsFrom, matches, matched_img);
-								cv::imwrite("/root/debug/" + std::to_string(toSignature.sensorData().id()) + ".png", matched_img);
 							}
 							else
 							{
